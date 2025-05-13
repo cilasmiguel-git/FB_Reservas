@@ -162,7 +162,7 @@ export default function MyBookingsPage() {
       </header>
 
       <Tabs defaultValue="Todas" className="w-full">
-        <TabsList className="grid w-full grid-cols-2 md:grid-cols-4 mb-6">
+        <TabsList className="grid w-full grid-cols-1 sm:grid-cols-2 md:grid-cols-4 mb-6">
           {bookingStatuses.map(status => (
             <TabsTrigger key={status} value={status}>{status}</TabsTrigger>
           ))}
