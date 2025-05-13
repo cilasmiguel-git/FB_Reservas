@@ -49,14 +49,14 @@ export default function HomePage() {
         <p className="mt-6 text-lg leading-8 text-muted-foreground max-w-2xl mx-auto">
           Seu sistema inteligente para gerenciamento e reserva de salas na FB UNI. Encontre, reserve e gerencie espaços com facilidade.
         </p>
-        <div className="mt-10 flex items-center justify-center gap-x-6">
-          <Button asChild size="lg">
+        <div className="mt-10 flex flex-col sm:flex-row items-center justify-center gap-4 sm:gap-x-6 px-4">
+          <Button asChild size="lg" className="w-full sm:w-auto">
             <Link href="/availability">
               Ver Salas Disponíveis
               <ArrowRight className="ml-2 h-5 w-5" />
             </Link>
           </Button>
-          <Button variant="outline" size="lg" asChild>
+          <Button variant="outline" size="lg" asChild className="w-full sm:w-auto">
             <Link href="/book">Fazer uma Reserva</Link>
           </Button>
         </div>

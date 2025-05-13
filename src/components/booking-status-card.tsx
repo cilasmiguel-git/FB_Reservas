@@ -11,7 +11,7 @@ interface BookingStatusCardProps {
   onEdit?: (bookingId: string) => void;
   onApprove?: (bookingId: string) => void;
   onReject?: (bookingId: string) => void;
-  onDeletePermanently?: (bookingId: string) => void; // New prop for permanent deletion
+  onDeletePermanently?: (bookingId: string) => void;
 }
 
 export default function BookingStatusCard({ booking, onCancel, onEdit, onApprove, onReject, onDeletePermanently }: BookingStatusCardProps) {
@@ -33,14 +33,14 @@ export default function BookingStatusCard({ booking, onCancel, onEdit, onApprove
       default:
         return {
           icon: Hourglass,
-          colorClass: 'bg-yellow-500 text-yellow-foreground', // Custom yellow
+          colorClass: 'bg-yellow-500 text-yellow-foreground', 
           text: 'Pendente',
         };
     }
   };
 
   const statusProps = getStatusProps(booking.status);
-  const isAdminView = onApprove && onReject; // This implies it's being used in a context where approval/rejection is possible
+  const isAdminView = onApprove && onReject; 
 
   return (
     <Card className="hover:shadow-md transition-shadow duration-200 flex flex-col">
@@ -67,27 +67,27 @@ export default function BookingStatusCard({ booking, onCancel, onEdit, onApprove
         </div>
       </CardContent>
       
-      <CardFooter className="flex justify-end gap-2 border-t pt-4 mt-auto">
+      <CardFooter className="flex flex-col sm:flex-row sm:justify-end gap-2 border-t pt-4 mt-auto">
         {booking.status === 'Pendente' && (
           <>
-            {isAdminView ? ( // User can approve/reject
+            {isAdminView ? ( 
               <>
-                <Button variant="outline" size="sm" onClick={() => onReject?.(booking.id)} className="border-destructive text-destructive hover:bg-destructive hover:text-destructive-foreground">
+                <Button variant="outline" size="sm" onClick={() => onReject?.(booking.id)} className="w-full sm:w-auto border-destructive text-destructive hover:bg-destructive hover:text-destructive-foreground">
                   <X className="mr-1 h-4 w-4" /> Rejeitar
                 </Button>
-                <Button variant="default" size="sm" onClick={() => onApprove?.(booking.id)} className="bg-accent hover:bg-accent/90 text-accent-foreground">
+                <Button variant="default" size="sm" onClick={() => onApprove?.(booking.id)} className="w-full sm:w-auto bg-accent hover:bg-accent/90 text-accent-foreground">
                   <Check className="mr-1 h-4 w-4" /> Aprovar
                 </Button>
               </>
-            ) : ( // User is likely the owner of the booking
+            ) : ( 
               <>
                 {onEdit && (
-                  <Button variant="outline" size="sm" onClick={() => onEdit(booking.id)}>
+                  <Button variant="outline" size="sm" onClick={() => onEdit(booking.id)} className="w-full sm:w-auto">
                     <Edit className="mr-1 h-4 w-4" /> Editar
                   </Button>
                 )}
                 {onCancel && (
-                  <Button variant="destructive" size="sm" onClick={() => onCancel(booking.id)}>
+                  <Button variant="destructive" size="sm" onClick={() => onCancel(booking.id)} className="w-full sm:w-auto">
                     <Trash2 className="mr-1 h-4 w-4" /> Cancelar Solicitação
                   </Button>
                 )}
@@ -96,7 +96,7 @@ export default function BookingStatusCard({ booking, onCancel, onEdit, onApprove
           </>
         )}
         {(booking.status === 'Aprovada' || booking.status === 'Rejeitada') && onDeletePermanently && (
-           <Button variant="destructive" size="sm" onClick={() => onDeletePermanently(booking.id)}>
+           <Button variant="destructive" size="sm" onClick={() => onDeletePermanently(booking.id)} className="w-full sm:w-auto">
             <Trash2 className="mr-1 h-4 w-4" /> Excluir Registro
           </Button>
         )}
