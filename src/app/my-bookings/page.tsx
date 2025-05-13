@@ -1,8 +1,9 @@
+
 'use client'; 
 
 import React, { useState, useEffect } from 'react';
 import BookingStatusCard from '@/components/booking-status-card';
-import { getBookings, deleteBooking as deleteBookingFromStorage } from '@/lib/booking-storage';
+import { getBookings, deleteBooking as deleteBookingFromStorage, updateBooking as updateBookingInStorage } from '@/lib/booking-storage';
 import type { BookingRequest } from '@/types';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from '@/hooks/use-toast';
@@ -22,7 +23,10 @@ import { buttonVariants } from '@/components/ui/button';
 export default function MyBookingsPage() {
   const [bookings, setBookings] = useState<BookingRequest[]>([]);
   const { toast } = useToast();
-  const [bookingToCancel, setBookingToCancel] = useState<{ id: string, purpose: string } | null>(null);
+  const [actionToConfirm, setActionToConfirm] = useState<{
+    type: 'cancel' | 'approve' | 'reject';
+    booking: BookingRequest;
+  } | null>(null);
   const [isClient, setIsClient] = useState(false);
 
   useEffect(() => {
@@ -49,27 +53,47 @@ export default function MyBookingsPage() {
   }, [isClient]);
 
 
-  const handleTriggerCancel = (booking: BookingRequest) => {
-    setBookingToCancel({ id: booking.id, purpose: booking.purpose });
+  const openConfirmationDialog = (type: 'cancel' | 'approve' | 'reject', booking: BookingRequest) => {
+    setActionToConfirm({ type, booking });
   };
 
-  const handleConfirmCancelBooking = () => {
-    if (!bookingToCancel) return;
+  const handleConfirmAction = () => {
+    if (!actionToConfirm) return;
+
+    const { type, booking } = actionToConfirm;
+
+    if (type === 'cancel') {
+      deleteBookingFromStorage(booking.id); 
+      setBookings(prevBookings => prevBookings.filter(b => b.id !== booking.id)); 
+      toast({
+        title: "Reserva Cancelada",
+        description: `Sua solicitação de reserva para "${booking.purpose}" foi cancelada.`,
+        variant: "default"
+      });
+    } else if (type === 'approve' || type === 'reject') {
+      const bookingToUpdate = bookings.find(b => b.id === booking.id);
+      if (!bookingToUpdate) {
+        toast({ title: 'Erro', description: 'Reserva não encontrada.', variant: 'destructive' });
+        setActionToConfirm(null);
+        return;
+      }
+      const newStatus = type === 'approve' ? 'Aprovada' : 'Rejeitada';
+      const updatedBooking: BookingRequest = { ...bookingToUpdate, status: newStatus };
+      
+      updateBookingInStorage(updatedBooking);
+      setBookings(prevBookings => prevBookings.map(b => b.id === booking.id ? updatedBooking : b));
+      
+      toast({
+        title: `Reserva ${newStatus === 'Aprovada' ? 'Aprovada' : 'Rejeitada'}`,
+        description: `A solicitação para "${bookingToUpdate.purpose}" na sala "${bookingToUpdate.roomName}" foi ${newStatus.toLowerCase()}.`,
+        variant: type === 'approve' ? 'default' : 'default',
+      });
+    }
     
-    deleteBookingFromStorage(bookingToCancel.id); 
-    setBookings(prevBookings => prevBookings.filter(b => b.id !== bookingToCancel.id)); 
-    toast({
-      title: "Reserva Cancelada",
-      description: `Sua solicitação de reserva para "${bookingToCancel.purpose}" foi cancelada.`,
-      variant: "default"
-    });
-    setBookingToCancel(null); 
+    setActionToConfirm(null); 
   };
 
   const handleEditBooking = (bookingId: string) => {
-    // For now, this redirects to the booking form, pre-filling some data would be ideal
-    // but the current form doesn't support editing existing bookings easily.
-    // router.push(`/book?bookingId=${bookingId}`); // Example for future enhancement
     toast({
       title: "Função Indisponível",
       description: "A edição de reservas ainda não foi implementada. Cancele e crie uma nova se necessário.",
@@ -89,12 +113,41 @@ export default function MyBookingsPage() {
     return <p className="text-center text-muted-foreground py-10">Carregando suas reservas...</p>;
   }
 
+  const getDialogTexts = () => {
+    if (!actionToConfirm) return { title: '', description: '', confirmText: '' };
+    const { type, booking } = actionToConfirm;
+    switch (type) {
+      case 'cancel':
+        return {
+          title: 'Confirmar Cancelamento',
+          description: `Tem certeza que deseja cancelar a solicitação de reserva para "${booking.purpose}"? Esta ação não pode ser desfeita.`,
+          confirmText: 'Confirmar Cancelamento',
+        };
+      case 'approve':
+        return {
+          title: 'Confirmar Aprovação',
+          description: `Tem certeza que deseja APROVAR a solicitação de reserva para "${booking.purpose}" na sala "${booking.roomName}"?`,
+          confirmText: 'Confirmar Aprovação',
+        };
+      case 'reject':
+        return {
+          title: 'Confirmar Rejeição',
+          description: `Tem certeza que deseja REJEITAR a solicitação de reserva para "${booking.purpose}" na sala "${booking.roomName}"?`,
+          confirmText: 'Confirmar Rejeição',
+        };
+      default:
+        return { title: '', description: '', confirmText: '' };
+    }
+  };
+
+  const dialogTexts = getDialogTexts();
+
   return (
     <div className="space-y-8">
       <header>
         <h1 className="text-3xl font-bold tracking-tight">Minhas Reservas</h1>
         <p className="text-muted-foreground">
-          Acompanhe o status de suas solicitações de reserva.
+          Acompanhe o status e gerencie suas solicitações de reserva.
         </p>
       </header>
 
@@ -113,8 +166,10 @@ export default function MyBookingsPage() {
                   <BookingStatusCard 
                     key={booking.id} 
                     booking={booking} 
-                    onCancel={() => handleTriggerCancel(booking)} 
+                    onCancel={booking.status === 'Pendente' ? () => openConfirmationDialog('cancel', booking) : undefined} 
                     onEdit={() => handleEditBooking(booking.id)}
+                    onApprove={booking.status === 'Pendente' ? () => openConfirmationDialog('approve', booking) : undefined}
+                    onReject={booking.status === 'Pendente' ? () => openConfirmationDialog('reject', booking) : undefined}
                   />
                 ))}
               </div>
@@ -127,22 +182,22 @@ export default function MyBookingsPage() {
         ))}
       </Tabs>
       
-      {bookingToCancel && (
-        <AlertDialog open={!!bookingToCancel} onOpenChange={(open) => { if(!open) setBookingToCancel(null); }}>
+      {actionToConfirm && (
+        <AlertDialog open={!!actionToConfirm} onOpenChange={(open) => { if(!open) setActionToConfirm(null); }}>
           <AlertDialogContent>
             <AlertDialogHeader>
-              <AlertDialogTitle>Confirmar Cancelamento</AlertDialogTitle>
+              <AlertDialogTitle>{dialogTexts.title}</AlertDialogTitle>
               <AlertDialogDescription>
-                Tem certeza que deseja cancelar a solicitação de reserva para "{bookingToCancel.purpose}"? Esta ação não pode ser desfeita.
+                {dialogTexts.description}
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
-              <AlertDialogCancel onClick={() => setBookingToCancel(null)}>Manter Reserva</AlertDialogCancel>
+              <AlertDialogCancel onClick={() => setActionToConfirm(null)}>Cancelar</AlertDialogCancel>
               <AlertDialogAction 
-                onClick={handleConfirmCancelBooking}
-                className={cn(buttonVariants({ variant: "destructive" }))}
+                onClick={handleConfirmAction}
+                className={cn(actionToConfirm.type !== 'approve' && buttonVariants({ variant: "destructive" }))}
               >
-                Confirmar Cancelamento
+                {dialogTexts.confirmText}
               </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>
@@ -151,3 +206,4 @@ export default function MyBookingsPage() {
     </div>
   );
 }
+
