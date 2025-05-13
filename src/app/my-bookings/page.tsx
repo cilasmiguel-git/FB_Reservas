@@ -16,36 +16,63 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-// Button import is not directly used here, but AlertDialogAction/Cancel use buttonVariants
-// import { Button } from '@/components/ui/button'; 
+import { cn } from '@/lib/utils';
+import { buttonVariants } from '@/components/ui/button';
 
 export default function MyBookingsPage() {
   const [bookings, setBookings] = useState<BookingRequest[]>([]);
   const { toast } = useToast();
-  const [bookingToCancel, setBookingToCancel] = useState<string | null>(null);
+  const [bookingToCancel, setBookingToCancel] = useState<{ id: string, purpose: string } | null>(null);
   const [isClient, setIsClient] = useState(false);
 
   useEffect(() => {
-    setIsClient(true); // Indicates component has mounted
-    setBookings(getBookings());
+    setIsClient(true); 
+    if (typeof window !== "undefined") {
+      setBookings(getBookings());
+    }
   }, []);
 
+  // Listen for storage changes to update bookings if modified in another tab (e.g., admin actions)
+  useEffect(() => {
+    if (!isClient) return;
 
-  const handleCancelBooking = (bookingId: string) => {
-    deleteBookingFromStorage(bookingId); 
-    setBookings(prevBookings => prevBookings.filter(b => b.id !== bookingId)); 
+    const handleStorageChange = (event: StorageEvent) => {
+      if (event.key === 'fbsalas_bookings') {
+        setBookings(getBookings());
+      }
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+    };
+  }, [isClient]);
+
+
+  const handleTriggerCancel = (booking: BookingRequest) => {
+    setBookingToCancel({ id: booking.id, purpose: booking.purpose });
+  };
+
+  const handleConfirmCancelBooking = () => {
+    if (!bookingToCancel) return;
+    
+    deleteBookingFromStorage(bookingToCancel.id); 
+    setBookings(prevBookings => prevBookings.filter(b => b.id !== bookingToCancel.id)); 
     toast({
       title: "Reserva Cancelada",
-      description: "Sua solicitação de reserva foi cancelada.",
+      description: `Sua solicitação de reserva para "${bookingToCancel.purpose}" foi cancelada.`,
       variant: "default"
     });
     setBookingToCancel(null); 
   };
 
   const handleEditBooking = (bookingId: string) => {
+    // For now, this redirects to the booking form, pre-filling some data would be ideal
+    // but the current form doesn't support editing existing bookings easily.
+    // router.push(`/book?bookingId=${bookingId}`); // Example for future enhancement
     toast({
       title: "Função Indisponível",
-      description: "A edição de reservas ainda não foi implementada.",
+      description: "A edição de reservas ainda não foi implementada. Cancele e crie uma nova se necessário.",
       variant: "default"
     });
   };
@@ -86,7 +113,7 @@ export default function MyBookingsPage() {
                   <BookingStatusCard 
                     key={booking.id} 
                     booking={booking} 
-                    onCancel={() => setBookingToCancel(booking.id)} 
+                    onCancel={() => handleTriggerCancel(booking)} 
                     onEdit={() => handleEditBooking(booking.id)}
                   />
                 ))}
@@ -106,12 +133,17 @@ export default function MyBookingsPage() {
             <AlertDialogHeader>
               <AlertDialogTitle>Confirmar Cancelamento</AlertDialogTitle>
               <AlertDialogDescription>
-                Tem certeza que deseja cancelar esta solicitação de reserva? Esta ação não pode ser desfeita.
+                Tem certeza que deseja cancelar a solicitação de reserva para "{bookingToCancel.purpose}"? Esta ação não pode ser desfeita.
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
               <AlertDialogCancel onClick={() => setBookingToCancel(null)}>Manter Reserva</AlertDialogCancel>
-              <AlertDialogAction onClick={() => handleCancelBooking(bookingToCancel)}>Confirmar Cancelamento</AlertDialogAction>
+              <AlertDialogAction 
+                onClick={handleConfirmCancelBooking}
+                className={cn(buttonVariants({ variant: "destructive" }))}
+              >
+                Confirmar Cancelamento
+              </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
