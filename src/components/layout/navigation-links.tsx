@@ -4,14 +4,14 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
-import { LayoutGrid, CalendarCheck, BookUser, Bot, Search, ListChecks } from 'lucide-react'; // Added Search, ListChecks icons
+import { CalendarCheck, BookUser, Bot, Search } from 'lucide-react'; // Removed ListChecks icon
 
 const navLinks = [
   { href: '/availability', label: 'Disponibilidade', icon: Search },
   { href: '/book', label: 'Solicitar Reserva', icon: CalendarCheck },
   { href: '/my-bookings', label: 'Minhas Reservas', icon: BookUser },
   { href: '/ai-suggest', label: 'Sugestão IA', icon: Bot },
-  { href: '/admin/bookings', label: 'Admin Reservas', icon: ListChecks },
+  // { href: '/admin/bookings', label: 'Admin Reservas', icon: ListChecks }, // Removed Admin Bookings link
 ];
 
 export default function NavigationLinks() {
@@ -22,7 +22,7 @@ export default function NavigationLinks() {
       {navLinks.map((link) => (
         <Button
           key={link.href}
-          variant={pathname === link.href || (link.href === '/admin/bookings' && pathname.startsWith('/admin')) ? 'secondary' : 'ghost'}
+          variant={pathname === link.href ? 'secondary' : 'ghost'}
           size="sm"
           asChild
           className="text-sm"
