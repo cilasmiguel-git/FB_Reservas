@@ -20,11 +20,13 @@ import {
 import { cn } from '@/lib/utils';
 import { buttonVariants } from '@/components/ui/button';
 
+type ActionType = 'cancel' | 'approve' | 'reject' | 'delete-permanently';
+
 export default function MyBookingsPage() {
   const [bookings, setBookings] = useState<BookingRequest[]>([]);
   const { toast } = useToast();
   const [actionToConfirm, setActionToConfirm] = useState<{
-    type: 'cancel' | 'approve' | 'reject';
+    type: ActionType;
     booking: BookingRequest;
   } | null>(null);
   const [isClient, setIsClient] = useState(false);
@@ -53,7 +55,7 @@ export default function MyBookingsPage() {
   }, [isClient]);
 
 
-  const openConfirmationDialog = (type: 'cancel' | 'approve' | 'reject', booking: BookingRequest) => {
+  const openConfirmationDialog = (type: ActionType, booking: BookingRequest) => {
     setActionToConfirm({ type, booking });
   };
 
@@ -62,12 +64,14 @@ export default function MyBookingsPage() {
 
     const { type, booking } = actionToConfirm;
 
-    if (type === 'cancel') {
+    if (type === 'cancel' || type === 'delete-permanently') {
       deleteBookingFromStorage(booking.id); 
       setBookings(prevBookings => prevBookings.filter(b => b.id !== booking.id)); 
       toast({
-        title: "Reserva Cancelada",
-        description: `Sua solicitação de reserva para "${booking.purpose}" foi cancelada.`,
+        title: type === 'cancel' ? "Reserva Cancelada" : "Registro Excluído",
+        description: type === 'cancel' 
+          ? `Sua solicitação de reserva para "${booking.purpose}" foi cancelada.`
+          : `O registro da reserva para "${booking.purpose}" foi excluído permanentemente.`,
         variant: "default"
       });
     } else if (type === 'approve' || type === 'reject') {
@@ -119,7 +123,7 @@ export default function MyBookingsPage() {
     switch (type) {
       case 'cancel':
         return {
-          title: 'Confirmar Cancelamento',
+          title: 'Confirmar Cancelamento da Solicitação',
           description: `Tem certeza que deseja cancelar a solicitação de reserva para "${booking.purpose}"? Esta ação não pode ser desfeita.`,
           confirmText: 'Confirmar Cancelamento',
         };
@@ -135,6 +139,12 @@ export default function MyBookingsPage() {
           description: `Tem certeza que deseja REJEITAR a solicitação de reserva para "${booking.purpose}" na sala "${booking.roomName}"?`,
           confirmText: 'Confirmar Rejeição',
         };
+      case 'delete-permanently':
+        return {
+          title: 'Confirmar Exclusão Permanente',
+          description: `Tem certeza que deseja excluir permanentemente o registro da reserva para "${booking.purpose}" (${booking.status})? Esta ação não pode ser desfeita.`,
+          confirmText: 'Excluir Permanentemente',
+        }
       default:
         return { title: '', description: '', confirmText: '' };
     }
@@ -167,9 +177,10 @@ export default function MyBookingsPage() {
                     key={booking.id} 
                     booking={booking} 
                     onCancel={booking.status === 'Pendente' ? () => openConfirmationDialog('cancel', booking) : undefined} 
-                    onEdit={() => handleEditBooking(booking.id)}
+                    onEdit={booking.status === 'Pendente' ? () => handleEditBooking(booking.id) : undefined}
                     onApprove={booking.status === 'Pendente' ? () => openConfirmationDialog('approve', booking) : undefined}
                     onReject={booking.status === 'Pendente' ? () => openConfirmationDialog('reject', booking) : undefined}
+                    onDeletePermanently={(booking.status === 'Aprovada' || booking.status === 'Rejeitada') ? () => openConfirmationDialog('delete-permanently', booking) : undefined}
                   />
                 ))}
               </div>
@@ -195,7 +206,10 @@ export default function MyBookingsPage() {
               <AlertDialogCancel onClick={() => setActionToConfirm(null)}>Cancelar</AlertDialogCancel>
               <AlertDialogAction 
                 onClick={handleConfirmAction}
-                className={cn(actionToConfirm.type !== 'approve' && buttonVariants({ variant: "destructive" }))}
+                className={cn(
+                  (actionToConfirm.type === 'reject' || actionToConfirm.type === 'cancel' || actionToConfirm.type === 'delete-permanently') && buttonVariants({ variant: "destructive" }),
+                  actionToConfirm.type === 'approve' && buttonVariants({variant: "default"}) // Ensure approve uses default
+                )}
               >
                 {dialogTexts.confirmText}
               </AlertDialogAction>
