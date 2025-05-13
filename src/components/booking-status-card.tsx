@@ -1,3 +1,4 @@
+
 import type { BookingRequest } from '@/types';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -45,9 +46,9 @@ export default function BookingStatusCard({ booking, onCancel, onEdit, onApprove
   return (
     <Card className="hover:shadow-md transition-shadow duration-200 flex flex-col">
       <CardHeader>
-        <div className="flex justify-between items-start">
-          <CardTitle className="text-lg mb-1">{booking.purpose}</CardTitle>
-          <Badge className={cn("text-xs", statusProps.colorClass)}>
+        <div className="flex justify-between items-start gap-2">
+          <CardTitle className="text-lg mb-1 flex-grow min-w-0">{booking.purpose}</CardTitle>
+          <Badge className={cn("text-xs flex-shrink-0", statusProps.colorClass)}>
             <statusProps.icon className="mr-1 h-3.5 w-3.5" />
             {statusProps.text}
           </Badge>
@@ -104,3 +105,4 @@ export default function BookingStatusCard({ booking, onCancel, onEdit, onApprove
     </Card>
   );
 }
+
