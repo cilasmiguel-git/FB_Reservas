@@ -23,10 +23,11 @@ import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { placeholderRooms } from '@/lib/placeholder-data';
-import type { Room } from '@/types';
+import type { Room, BookingRequest } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter, useSearchParams } from 'next/navigation';
-import React from 'react';
+import React, { useEffect, useState } from 'react';
+import { addBooking as addBookingToStorage } from '@/lib/booking-storage';
 
 const bookingFormSchema = z.object({
   roomId: z.string().min(1, { message: 'Selecione uma sala.' }),
@@ -34,43 +35,97 @@ const bookingFormSchema = z.object({
   startTime: z.string().regex(/^([01]\d|2[0-3]):([0-5]\d)$/, { message: 'Formato de hora inválido (HH:MM).' }),
   endTime: z.string().regex(/^([01]\d|2[0-3]):([0-5]\d)$/, { message: 'Formato de hora inválido (HH:MM).' }),
   purpose: z.string().min(5, { message: 'Descreva o propósito da reserva (mín. 5 caracteres).' }).max(200),
+}).refine(data => {
+  if (data.startTime && data.endTime) {
+    return data.endTime > data.startTime;
+  }
+  return true;
+}, {
+  message: "O horário de término deve ser após o horário de início.",
+  path: ["endTime"],
 });
 
 type BookingFormValues = z.infer<typeof bookingFormSchema>;
-
-const rooms: Room[] = placeholderRooms; // In a real app, fetch this or pass as prop
 
 export default function BookingForm() {
   const { toast } = useToast();
   const router = useRouter();
   const searchParams = useSearchParams();
   const preselectedRoomId = searchParams.get('roomId');
-  const [isLoading, setIsLoading] = React.useState(false);
+  const preselectedRoomName = searchParams.get('roomName');
+
+  const [isLoading, setIsLoading] = useState(false);
+  const [availableRooms, setAvailableRooms] = useState<Room[]>([]);
+
+  useEffect(() => {
+    setAvailableRooms(placeholderRooms);
+  }, []);
 
   const form = useForm<BookingFormValues>({
     resolver: zodResolver(bookingFormSchema),
     defaultValues: {
       roomId: preselectedRoomId || '',
-      startTime: '',
-      endTime: '',
+      startTime: '09:00',
+      endTime: '10:00',
       purpose: '',
+      date: new Date(),
     },
   });
 
+  useEffect(() => {
+    if (preselectedRoomName && !form.getValues('roomId') && availableRooms.length > 0) {
+      try {
+        const decodedRoomName = decodeURIComponent(preselectedRoomName);
+        const room = availableRooms.find(r => r.name === decodedRoomName);
+        if (room) {
+          form.setValue('roomId', room.id);
+        }
+      } catch (e) {
+        console.error("Error decoding room name from URL:", e);
+      }
+    }
+  }, [preselectedRoomName, availableRooms, form]);
+
+
   async function onSubmit(data: BookingFormValues) {
     setIsLoading(true);
-    console.log('Booking data:', data);
+
+    const selectedRoom = availableRooms.find(r => r.id === data.roomId);
+    if (!selectedRoom) {
+      toast({ title: 'Erro', description: 'Sala selecionada não encontrada.', variant: 'destructive' });
+      setIsLoading(false);
+      return;
+    }
+
+    const newBooking: BookingRequest = {
+      id: `booking_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+      roomId: data.roomId,
+      roomName: selectedRoom.name,
+      date: format(data.date, 'yyyy-MM-dd'),
+      time: `${data.startTime} - ${data.endTime}`,
+      purpose: data.purpose,
+      status: 'Pendente',
+    };
+
     // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1500));
+    await new Promise(resolve => setTimeout(resolve, 1000));
     
+    addBookingToStorage(newBooking);
+
     toast({
       title: 'Solicitação Enviada!',
-      description: `Sua reserva para a sala ${rooms.find(r => r.id === data.roomId)?.name || ''} foi enviada para aprovação.`,
+      description: `Sua reserva para ${newBooking.roomName} foi enviada para aprovação.`,
       variant: 'default'
     });
-    form.reset();
+    form.reset({
+      roomId: '',
+      date: new Date(),
+      startTime: '09:00',
+      endTime: '10:00',
+      purpose: '',
+    });
     setIsLoading(false);
-    router.push('/my-bookings'); // Navigate to booking status page
+    router.push('/my-bookings');
   }
 
   return (
@@ -82,14 +137,15 @@ export default function BookingForm() {
           render={({ field }) => (
             <FormItem>
               <FormLabel>Sala Desejada</FormLabel>
-              <Select onValueChange={field.onChange} defaultValue={field.value}>
+              <Select onValueChange={field.onChange} value={field.value || ''} defaultValue={field.value || ''}>
                 <FormControl>
                   <SelectTrigger>
                     <SelectValue placeholder="Selecione uma sala" />
                   </SelectTrigger>
                 </FormControl>
                 <SelectContent>
-                  {rooms.map((room) => (
+                  {availableRooms.length === 0 && <SelectItem value="loading" disabled>Carregando salas...</SelectItem>}
+                  {availableRooms.map((room) => (
                     <SelectItem key={room.id} value={room.id}>
                       {room.name} (Capacidade: {room.capacity})
                     </SelectItem>
@@ -131,7 +187,7 @@ export default function BookingForm() {
                     mode="single"
                     selected={field.value}
                     onSelect={field.onChange}
-                    disabled={(date) => date < new Date(new Date().setHours(0,0,0,0))} // Disable past dates
+                    disabled={(date) => date < new Date(new Date().setHours(0,0,0,0))}
                     initialFocus
                     locale={ptBR}
                   />

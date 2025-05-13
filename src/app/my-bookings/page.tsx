@@ -1,8 +1,8 @@
-'use client'; // For potential client-side interactions like cancel/edit
+'use client'; 
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import BookingStatusCard from '@/components/booking-status-card';
-import { placeholderBookings } from '@/lib/placeholder-data';
+import { getBookings, deleteBooking as deleteBookingFromStorage } from '@/lib/booking-storage';
 import type { BookingRequest } from '@/types';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from '@/hooks/use-toast';
@@ -15,33 +15,38 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { Button } from '@/components/ui/button'; // Ensure Button is imported for AlertDialogTrigger
+// Button import is not directly used here, but AlertDialogAction/Cancel use buttonVariants
+// import { Button } from '@/components/ui/button'; 
 
 export default function MyBookingsPage() {
-  const [bookings, setBookings] = useState<BookingRequest[]>(placeholderBookings);
+  const [bookings, setBookings] = useState<BookingRequest[]>([]);
   const { toast } = useToast();
   const [bookingToCancel, setBookingToCancel] = useState<string | null>(null);
+  const [isClient, setIsClient] = useState(false);
 
-  // In a real app, these would be API calls
+  useEffect(() => {
+    setIsClient(true); // Indicates component has mounted
+    setBookings(getBookings());
+  }, []);
+
+
   const handleCancelBooking = (bookingId: string) => {
-    // Simulate API call and update state
-    setBookings(prevBookings => prevBookings.filter(b => b.id !== bookingId));
+    deleteBookingFromStorage(bookingId); 
+    setBookings(prevBookings => prevBookings.filter(b => b.id !== bookingId)); 
     toast({
       title: "Reserva Cancelada",
       description: "Sua solicitação de reserva foi cancelada.",
       variant: "default"
     });
-    setBookingToCancel(null); // Close dialog
+    setBookingToCancel(null); 
   };
 
   const handleEditBooking = (bookingId: string) => {
-    // Navigate to edit page or open modal
     toast({
       title: "Função Indisponível",
       description: "A edição de reservas ainda não foi implementada.",
-      variant: "default" // Or "destructive" if it's an error
+      variant: "default"
     });
   };
 
@@ -52,6 +57,10 @@ export default function MyBookingsPage() {
   };
 
   const bookingStatuses: (BookingRequest['status'] | 'Todas')[] = ['Todas', 'Pendente', 'Aprovada', 'Rejeitada'];
+  
+  if (!isClient) {
+    return <p className="text-center text-muted-foreground py-10">Carregando suas reservas...</p>;
+  }
 
   return (
     <div className="space-y-8">
@@ -77,7 +86,7 @@ export default function MyBookingsPage() {
                   <BookingStatusCard 
                     key={booking.id} 
                     booking={booking} 
-                    onCancel={() => setBookingToCancel(booking.id)} // Open dialog
+                    onCancel={() => setBookingToCancel(booking.id)} 
                     onEdit={() => handleEditBooking(booking.id)}
                   />
                 ))}
@@ -92,7 +101,7 @@ export default function MyBookingsPage() {
       </Tabs>
       
       {bookingToCancel && (
-        <AlertDialog open={!!bookingToCancel} onOpenChange={() => setBookingToCancel(null)}>
+        <AlertDialog open={!!bookingToCancel} onOpenChange={(open) => { if(!open) setBookingToCancel(null); }}>
           <AlertDialogContent>
             <AlertDialogHeader>
               <AlertDialogTitle>Confirmar Cancelamento</AlertDialogTitle>
